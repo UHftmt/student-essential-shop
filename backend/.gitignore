@@ -1,0 +1,19 @@
+# Python virtual environment
+venv/
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# Database
+*.sqlite3
+# we are committing products.db? No, usually don't commit sqlite DB.
+products.db
+
+# OS files
+.DS_Store
