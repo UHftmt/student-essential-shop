@@ -129,6 +129,85 @@ def update_stock(product_id):
     conn.close()
     return jsonify({"success": True, "message": "Stock updated"})
 
+@app.route('/api/products', methods=['POST'])
+@require_role('admin')
+def create_product():
+    data = request.json
+    required_fields = ['name', 'price']
+    if not all(field in data for field in required_fields):
+        return jsonify({"error": "Missing required fields"}), 400
+        
+    conn = get_db_connection()
+    cursor = conn.execute('''
+        INSERT INTO products (name, price, image, category, stock, description, featured, onSale)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        data.get('name'),
+        data.get('price'),
+        data.get('image', ''),
+        data.get('category', ''),
+        data.get('stock', 0),
+        data.get('description', ''),
+        int(bool(data.get('featured'))),
+        int(bool(data.get('onSale')))
+    ))
+    new_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"success": True, "id": new_id, "message": "Product created"}), 201
+
+@app.route('/api/products/<int:product_id>', methods=['PUT'])
+@require_role('admin')
+def update_product(product_id):
+    data = request.json
+    conn = get_db_connection()
+    
+    # Verify product exists
+    product = conn.execute('SELECT * FROM products WHERE id = ?', (product_id,)).fetchone()
+    if not product:
+        conn.close()
+        return jsonify({"error": "Product not found"}), 404
+
+    # Build update query dynamically
+    update_fields = []
+    params = []
+    
+    fields = ['name', 'price', 'image', 'category', 'stock', 'description', 'featured', 'onSale']
+    for field in fields:
+        if field in data:
+            update_fields.append(f"{field} = ?")
+            val = data[field]
+            if field in ['featured', 'onSale']:
+                val = int(bool(val))
+            params.append(val)
+            
+    if not update_fields:
+        conn.close()
+        return jsonify({"error": "No valid fields to update"}), 400
+        
+    params.append(product_id)
+    query = f"UPDATE products SET {', '.join(update_fields)} WHERE id = ?"
+    
+    conn.execute(query, tuple(params))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"success": True, "message": "Product updated"})
+
+@app.route('/api/products/<int:product_id>', methods=['DELETE'])
+@require_role('admin')
+def delete_product(product_id):
+    conn = get_db_connection()
+    cursor = conn.execute('DELETE FROM products WHERE id = ?', (product_id,))
+    if cursor.rowcount == 0:
+        conn.close()
+        return jsonify({"error": "Product not found"}), 404
+        
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Product deleted"})
+
 @app.route('/api/pos/sale', methods=['POST'])
 @require_role('admin', 'cashier')
 def pos_sale():
@@ -169,6 +248,119 @@ def pos_sale():
         return jsonify({"error": "Internal server error"}), 500
     finally:
         conn.close()
+
+@app.route('/api/orders', methods=['POST'])
+@require_role('customer', 'admin')
+def create_order():
+    auth_header = request.headers.get('Authorization')
+    token = auth_header.split(' ')[1]
+    payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    user_id = payload.get('user_id')
+    
+    data = request.json
+    items = data.get('items', [])
+    if not items:
+        return jsonify({"error": "No items provided"}), 400
+        
+    conn = get_db_connection()
+    try:
+        conn.execute('BEGIN TRANSACTION')
+        total_price = 0
+        
+        # Calculate total and deduct stock
+        for item in items:
+            product_id = item.get('id') or item.get('productId')
+            quantity = item.get('quantity')
+            
+            if not product_id or not quantity or quantity <= 0:
+                raise ValueError("Invalid item format")
+                
+            product = conn.execute('SELECT stock, price FROM products WHERE id = ?', (product_id,)).fetchone()
+            if not product:
+                raise ValueError(f"Product {product_id} not found")
+            if product['stock'] < quantity:
+                raise ValueError(f"Insufficient stock for product {product_id}")
+                
+            total_price += product['price'] * quantity
+            conn.execute('UPDATE products SET stock = stock - ? WHERE id = ?', (quantity, product_id))
+            
+        # Create order
+        cursor = conn.execute('INSERT INTO orders (user_id, total_price) VALUES (?, ?)', (user_id, total_price))
+        order_id = cursor.lastrowid
+        
+        # Create order items
+        for item in items:
+            product_id = item.get('id') or item.get('productId')
+            quantity = item.get('quantity')
+            price = conn.execute('SELECT price FROM products WHERE id = ?', (product_id,)).fetchone()['price']
+            conn.execute('INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)', 
+                         (order_id, product_id, quantity, price))
+                         
+        conn.commit()
+        return jsonify({"success": True, "order_id": order_id, "message": "Order completed successfully"})
+    except ValueError as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/orders', methods=['GET'])
+@require_role('customer', 'admin')
+def get_orders():
+    auth_header = request.headers.get('Authorization')
+    token = auth_header.split(' ')[1]
+    payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    user_id = payload.get('user_id')
+    
+    conn = get_db_connection()
+    orders = conn.execute('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC', (user_id,)).fetchall()
+    
+    orders_list = []
+    for order in orders:
+        order_dict = dict(order)
+        items = conn.execute('''
+            SELECT oi.*, p.name, p.image 
+            FROM order_items oi 
+            JOIN products p ON oi.product_id = p.id 
+            WHERE oi.order_id = ?
+        ''', (order['id'],)).fetchall()
+        order_dict['items'] = [dict(item) for item in items]
+        orders_list.append(order_dict)
+        
+    conn.close()
+    return jsonify(orders_list)
+
+@app.route('/api/admin/customers', methods=['GET'])
+@require_role('admin')
+def get_customers():
+    conn = get_db_connection()
+    customers = conn.execute('SELECT id, name, email, role FROM users WHERE role = "customer"').fetchall()
+    conn.close()
+    return jsonify([dict(c) for c in customers])
+
+@app.route('/api/admin/orders/<int:user_id>', methods=['GET'])
+@require_role('admin')
+def get_admin_user_orders(user_id):
+    conn = get_db_connection()
+    orders = conn.execute('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC', (user_id,)).fetchall()
+    
+    orders_list = []
+    for order in orders:
+        order_dict = dict(order)
+        items = conn.execute('''
+            SELECT oi.*, p.name, p.image 
+            FROM order_items oi 
+            JOIN products p ON oi.product_id = p.id 
+            WHERE oi.order_id = ?
+        ''', (order['id'],)).fetchall()
+        order_dict['items'] = [dict(item) for item in items]
+        orders_list.append(order_dict)
+        
+    conn.close()
+    return jsonify(orders_list)
 
 @app.route('/api/auth/google_login', methods=['POST'])
 def google_login():

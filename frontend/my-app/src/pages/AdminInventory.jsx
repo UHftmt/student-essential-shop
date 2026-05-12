@@ -14,6 +14,86 @@ function AdminInventory() {
   const [editStockValue, setEditStockValue] = useState('');
   const [editError, setEditError] = useState('');
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+  const [currentProduct, setCurrentProduct] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '', price: '', image: '', category: '', stock: 0, description: '', featured: false, onSale: false
+  });
+
+  const openModal = (mode, product = null) => {
+    setModalMode(mode);
+    setCurrentProduct(product);
+    if (product) {
+      setFormData({
+        name: product.name || '',
+        price: product.price || '',
+        image: product.image || '',
+        category: product.category || '',
+        stock: product.stock || 0,
+        description: product.description || '',
+        featured: !!product.featured,
+        onSale: !!product.onSale
+      });
+    } else {
+      setFormData({
+        name: '', price: '', image: '', category: '', stock: 0, description: '', featured: false, onSale: false
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setCurrentProduct(null);
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    const url = modalMode === 'create' ? getApiUrl('/products') : getApiUrl(`/products/${currentProduct.id}`);
+    const method = modalMode === 'create' ? 'POST' : 'PUT';
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+      if (!response.ok) throw new Error('Failed to save product');
+      closeModal();
+      refresh();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(getApiUrl(`/products/${id}`), {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to delete product');
+      refresh();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleRestockClick = (product) => {
     setEditingRowId(product.id);
     setEditStockValue(product.stock.toString());
@@ -34,10 +114,12 @@ function AdminInventory() {
     }
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(getApiUrl(`/products/${id}/stock`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ stock: stockNum }),
       });
@@ -101,7 +183,10 @@ function AdminInventory() {
 
   return (
     <div className="admin-inventory-container">
-      <h2>Admin Inventory</h2>
+      <div className="inventory-header-actions">
+        <h2>Admin Inventory</h2>
+        <button className="btn-add" onClick={() => openModal('create')}>+ Add Product</button>
+      </div>
 
       <div className="inventory-filters">
         <input
@@ -190,8 +275,10 @@ function AdminInventory() {
                       )}
                     </td>
                     <td className="badges-cell">
-                      {product.featured && <span className="product-badge badge-featured">Featured</span>}
-                      {product.onSale && <span className="product-badge badge-sale">On Sale</span>}
+                      <div className="badges-container">
+                        {product.featured ? <span className="product-badge badge-featured">Featured</span> : null}
+                        {product.onSale ? <span className="product-badge badge-sale">On Sale</span> : null}
+                      </div>
                     </td>
                     <td>
                       {editingRowId === product.id ? (
@@ -200,7 +287,11 @@ function AdminInventory() {
                           <button className="btn-cancel" onClick={handleCancel}>Cancel</button>
                         </div>
                       ) : (
-                        <button className="btn-restock" onClick={() => handleRestockClick(product)}>Restock</button>
+                        <div className="action-buttons">
+                          <button className="btn-restock" onClick={() => handleRestockClick(product)}>Restock</button>
+                          <button className="btn-edit" onClick={() => openModal('edit', product)}>Edit</button>
+                          <button className="btn-delete" onClick={() => handleDelete(product.id)}>Delete</button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -210,6 +301,52 @@ function AdminInventory() {
           </tbody>
         </table>
       </div>
+
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>{modalMode === 'create' ? 'Add New Product' : 'Edit Product'}</h3>
+            <form onSubmit={handleFormSubmit}>
+              <div className="form-group">
+                <label>Name</label>
+                <input type="text" name="name" value={formData.name} onChange={handleFormChange} required />
+              </div>
+              <div className="form-group">
+                <label>Price</label>
+                <input type="number" step="0.01" name="price" value={formData.price} onChange={handleFormChange} required />
+              </div>
+              <div className="form-group">
+                <label>Category</label>
+                <input type="text" name="category" value={formData.category} onChange={handleFormChange} />
+              </div>
+              <div className="form-group">
+                <label>Stock</label>
+                <input type="number" name="stock" value={formData.stock} onChange={handleFormChange} required />
+              </div>
+              <div className="form-group">
+                <label>Image URL</label>
+                <input type="text" name="image" value={formData.image} onChange={handleFormChange} />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea name="description" value={formData.description} onChange={handleFormChange}></textarea>
+              </div>
+              <div className="form-group form-checkbox">
+                <input type="checkbox" name="featured" checked={formData.featured} onChange={handleFormChange} />
+                <label>Featured</label>
+              </div>
+              <div className="form-group form-checkbox">
+                <input type="checkbox" name="onSale" checked={formData.onSale} onChange={handleFormChange} />
+                <label>On Sale</label>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn-cancel" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="btn-save">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

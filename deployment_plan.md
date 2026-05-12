@@ -52,13 +52,13 @@
 - [ ] Test SSH connectivity.
 
 ## 07-github-push
-- [ ] Create new GitHub repos for frontend and backend.
-- [ ] Add remotes locally and push code.
+- [x] Create a single GitHub repo for the monorepo (frontend + backend).
+- [x] Add the remote locally and push code.
 
 ## 08-pythonanywhere-deploy
-- [ ] Navigate to PythonAnywhere via BrowserOS.
-- [ ] Setup Flask app, config WSGI, env vars.
-- [ ] Test deployed backend health endpoint.
+- [x] Navigate to PythonAnywhere via BrowserOS.
+- [x] Setup Flask app, config WSGI, env vars.
+- [x] Test deployed backend health endpoint.
 
 ## 09-vercel-deploy
 - [ ] Navigate to Vercel via BrowserOS.

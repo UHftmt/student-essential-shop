@@ -41,22 +41,18 @@ function Navbar() {
         </Link>
       </div>
       <div className="navbar-right">
+        <Link to="/" className="nav-link">Store</Link>
+        <Link to="/products" className="nav-link">Products</Link>
         {user && user.role === 'customer' && (
-          <>
-            <Link to="/" className="nav-link">Store</Link>
-            <Link to="/orders" className="nav-link">Orders</Link>
-          </>
+          <Link to="/orders" className="nav-link">Orders</Link>
         )}
         {user && user.role === 'cashier' && (
-          <>
-            <Link to="/" className="nav-link">Store</Link>
-            <Link to="/pos" className="nav-link">POS</Link>
-          </>
+          <Link to="/pos" className="nav-link">POS</Link>
         )}
         {user && user.role === 'admin' && (
           <>
-            <Link to="/" className="nav-link">Store</Link>
-            <Link to="/admin" className="nav-link">Admin</Link>
+            <Link to="/admin" className="nav-link">Admin Inventory</Link>
+            <Link to="/admin/orders" className="nav-link">Admin Orders</Link>
             <Link to="/pos" className="nav-link">POS</Link>
           </>
         )}

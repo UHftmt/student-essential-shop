@@ -9,7 +9,9 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import CheckoutPage from './pages/CheckoutPage';
 import AdminInventory from './pages/AdminInventory';
+import AdminOrders from './pages/AdminOrders';
 import POS from './pages/POS';
+import Orders from './pages/Orders';
 import useProducts from './hooks/useProducts';
 import './App.css';
 
@@ -61,10 +63,26 @@ function App() {
               />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route 
+                path="/orders" 
+                element={
+                  <ProtectedRoute allowedRoles={['customer', 'admin']}>
+                    <Orders />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
                 path="/admin" 
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
                     <AdminInventory />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/orders" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminOrders />
                   </ProtectedRoute>
                 } 
               />

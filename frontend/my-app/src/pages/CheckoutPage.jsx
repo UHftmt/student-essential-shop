@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { getApiUrl } from '../utils/api';
 import './CheckoutPage.css';
 
 function CheckoutPage() {
   const { cartItems, total, clearCart } = useCart();
+  const { token } = useAuth();
   const navigate = useNavigate();
+  const [apiError, setApiError] = useState('');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -60,7 +64,7 @@ function CheckoutPage() {
   // Quick boolean check used to enable/disable the submit button
   const isFormValid = name.trim() !== '' && email.trim() !== '' && cartItems.length > 0;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const errs = validate();
@@ -68,8 +72,29 @@ function CheckoutPage() {
 
     // Only proceed when there are zero errors
     if (Object.keys(errs).length === 0) {
-      clearCart();
-      setSubmitted(true);
+      if (!token) {
+        setApiError("Please log in to place an order.");
+        return;
+      }
+      try {
+        const res = await fetch(getApiUrl('/orders'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ items: cartItems })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          clearCart();
+          setSubmitted(true);
+        } else {
+          setApiError(data.error || 'Failed to place order');
+        }
+      } catch (err) {
+        setApiError('Network error. Please try again.');
+      }
     }
   };
 
@@ -132,6 +157,7 @@ function CheckoutPage() {
         )}
 
         <form onSubmit={handleSubmit} noValidate>
+          {apiError && <div className="error-message" style={{color: 'red', padding: '10px', background: '#ffebee', borderRadius: '4px', marginBottom: '15px'}}>{apiError}</div>}
           {/* Name */}
           <div className="form-group">
             <label htmlFor="checkout-name">Full Name</label>
