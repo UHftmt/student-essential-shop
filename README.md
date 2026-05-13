@@ -15,6 +15,14 @@ For the final project of COS108, I have build an e-commerce application for stud
 - **Responsive Design:** modern, mobile-friendly user experience.
 - **Persistence-Aware Cart:** cart data persists across sessions and device changes.
 
+## Extension features highlighting
+
+- **Backend search**
+- **Cart persistence**
+- **Pagination**
+- **Create / Edit / Delete a product (admin form)**
+- **Bulk POS sale** 
+
 ## 🚀 Live Links
 - **Frontend:** [https://student-essential-shop.vercel.app](https://student-essential-shop.vercel.app)
 - **Backend:** [https://yuhe.pythonanywhere.com](https://yuhe.pythonanywhere.com)
