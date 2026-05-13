@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import useProducts from '../hooks/useProducts';
+import { useAuth } from '../context/AuthContext';
 import { getApiUrl } from '../utils/api';
 import './AdminInventory.css';
 
 function AdminInventory() {
   const { products, isLoading, error, refresh } = useProducts();
+  const { token } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -58,7 +60,6 @@ function AdminInventory() {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
     const url = modalMode === 'create' ? getApiUrl('/products') : getApiUrl(`/products/${currentProduct.id}`);
     const method = modalMode === 'create' ? 'POST' : 'PUT';
 
@@ -81,7 +82,7 @@ function AdminInventory() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
-    const token = localStorage.getItem('token');
+
     try {
       const response = await fetch(getApiUrl(`/products/${id}`), {
         method: 'DELETE',
@@ -114,7 +115,7 @@ function AdminInventory() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+
       const response = await fetch(getApiUrl(`/products/${id}/stock`), {
         method: 'PUT',
         headers: {
