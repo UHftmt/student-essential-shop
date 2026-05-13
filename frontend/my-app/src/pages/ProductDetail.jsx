@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import LoginReminderModal from '../components/LoginReminderModal';
 import { getApiUrl } from '../utils/api';
 import './ProductDetail.css';
 
@@ -8,10 +10,12 @@ function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { user } = useAuth();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showLoginReminder, setShowLoginReminder] = useState(false);
 
   // Fetch a single product from the Flask API when the page loads (or id changes)
   useEffect(() => {
@@ -31,6 +35,14 @@ function ProductDetail() {
         setLoading(false);
       });
   }, [id]);
+
+  const handleAddToCart = () => {
+    if (!user) {
+      setShowLoginReminder(true);
+      return;
+    }
+    addToCart(product);
+  };
 
   if (loading) {
     return (
@@ -82,12 +94,16 @@ function ProductDetail() {
           <button 
             className="detail-add-btn"
             disabled={product.stock === 0}
-            onClick={() => addToCart(product)}
+            onClick={handleAddToCart}
           >
             {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
           </button>
         </div>
       </div>
+      <LoginReminderModal
+        isOpen={showLoginReminder}
+        onClose={() => setShowLoginReminder(false)}
+      />
     </div>
   );
 }

@@ -1,0 +1,56 @@
+.error-card-area {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 4rem 2rem;
+  width: 100%;
+}
+
+.error-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2.5rem 3rem;
+  background-color: #1c1c1e;
+  border: 1px solid #3a2020;
+  border-radius: 16px;
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+}
+
+.error-card-icon {
+  font-size: 2.5rem;
+}
+
+.error-card-text {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #f87171;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.error-card-btn {
+  margin-top: 0.5rem;
+  padding: 10px 24px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  background-color: #dc2626;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.error-card-btn:hover {
+  background-color: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.error-card-btn:active {
+  background-color: #991b1b;
+  transform: translateY(1px) scale(0.97);
+}

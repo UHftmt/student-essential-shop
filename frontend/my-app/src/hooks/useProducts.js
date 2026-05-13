@@ -33,13 +33,15 @@ const API_URL = getApiUrl('/products');
 /**
  * useProducts – custom hook for fetching & caching the product list.
  *
- * Returns { products, isLoading, error, lastUpdated, refresh }.
+ * Returns { products, isLoading, error, lastUpdated, refresh, search }.
  *
  *  products    – Array of product objects ([] while loading).
  *  isLoading   – true during the network request.
  *  error       – Error message string, or null.
  *  lastUpdated – Date object of the most recent successful fetch.
  *  refresh()   – Clears the cache and re-fetches from the network.
+ *  search(q)   – Fetches products matching query `q` from the backend
+ *                and updates the cache with the results.
  */
 export default function useProducts() {
   // Initialise state from the cache so returning to this page is
@@ -53,12 +55,18 @@ export default function useProducts() {
   // cache AND the React state.  Because it updates the cache first,
   // any *new* component that mounts mid-flight will still pick up
   // the freshest data once the fetch resolves.
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (searchQuery = '') => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(API_URL);
+      // Build URL with optional search parameter
+      let url = API_URL;
+      if (searchQuery.trim()) {
+        url += `?search=${encodeURIComponent(searchQuery.trim())}`;
+      }
+
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch products');
       }
@@ -97,6 +105,11 @@ export default function useProducts() {
     fetchProducts();
   }, [fetchProducts]);
 
-  return { products, isLoading, error, lastUpdated, refresh };
-}
+  // search – queries the backend with a search term and updates the
+  // product cache with the results.
+  const search = useCallback((query) => {
+    return fetchProducts(query);
+  }, [fetchProducts]);
 
+  return { products, isLoading, error, lastUpdated, refresh, search };
+}

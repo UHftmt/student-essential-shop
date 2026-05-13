@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
+import ErrorCard from '../components/ErrorCard';
 import './Home.css';
 
-function Home({ products }) {
+function Home({ products, error, refresh }) {
   const navigate = useNavigate();
 
   // Display only products where featured = true
@@ -23,16 +24,20 @@ function Home({ products }) {
       </section>
 
       <section className="featured-section">
-        <h2 className="section-title" style={{ color: 'black' }}>Featured Products</h2>
-        <div className="featured-scroll-row">
-          {featuredProducts.map(product => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onSale={product.onSale}
-            />
-          ))}
-        </div>
+        <h2 className="section-title">Featured Products</h2>
+        {error ? (
+          <ErrorCard message={error} onRetry={refresh} />
+        ) : (
+          <div className="featured-scroll-row">
+            {featuredProducts.map(product => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onSale={product.onSale}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

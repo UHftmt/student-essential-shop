@@ -23,7 +23,7 @@ function ProtectedRoute({ children, allowedRoles }) {
 }
 
 function App() {
-  const { products, isLoading, error } = useProducts();
+  const { products, isLoading, error, refresh } = useProducts();
 
   return (
     <AuthProvider>
@@ -38,16 +38,11 @@ function App() {
                 <p>Loading....</p>
               </div>
             )}
-            {error && (
-              <div className="error-message">
-                <p>⚠️ Failed to load products: {error}</p>
-                <button onClick={() => window.location.reload()}>Try Again</button>
-              </div>
-            )}
+            {error && !isLoading && null /* Error is handled within individual page components */}
             <Routes>
               <Route
                 path="/"
-                element={<Home products={products} />}
+                element={<Home products={products} error={error} refresh={refresh} />}
               />
               <Route
                 path="/products"

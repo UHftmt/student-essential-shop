@@ -1,28 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
+import ErrorCard from '../components/ErrorCard';
 import useProducts from '../hooks/useProducts';
 import './Products.css';
 
-// Fuzzy match: checks if all characters of the query appear in order in the target
-function fuzzyMatch(target, query) {
-  if (!query) return true;
-  const t = target.toLowerCase();
-  const q = query.toLowerCase();
-
-  // Exact substring match always wins
-  if (t.includes(q)) return true;
-
-  // Character-by-character ordered match
-  let qi = 0;
-  for (let i = 0; i < t.length && qi < q.length; i++) {
-    if (t[i] === q[qi]) qi++;
-  }
-  return qi === q.length;
-}
-
 function Products() {
-  const { products, isLoading, error, lastUpdated, refresh } = useProducts();
+  const { products, isLoading, error, lastUpdated, refresh, search } = useProducts();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSearch = searchParams.get('search') || '';
@@ -34,31 +18,28 @@ function Products() {
 
   // Sync state if URL changes (e.g. going back/forward)
   useEffect(() => {
-    setSearchQuery(searchParams.get('search') || '');
+    const urlSearch = searchParams.get('search') || '';
+    setSearchQuery(urlSearch);
+    // If the URL has a search param on mount/change, trigger a backend search
+    if (urlSearch) {
+      search(urlSearch);
+    }
   }, [searchParams]);
-
-  // Live update: auto-select category as the user types
-  useEffect(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) {
-      setSelectedCategory('All');
-      return;
-    }
-    const matchedCategory = categories.find(
-      cat => cat.toLowerCase() === q
-    );
-    if (matchedCategory) {
-      setSelectedCategory(matchedCategory);
-    }
-  }, [searchQuery]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (searchQuery) {
-      setSearchParams({ search: searchQuery });
+    const query = searchQuery.trim();
+    if (query) {
+      setSearchParams({ search: query });
+      // Send the search query to the backend
+      search(query);
     } else {
       setSearchParams({});
+      // Empty query → reload all products
+      refresh();
     }
+    // Reset category filter on new search
+    setSelectedCategory('All');
   };
 
   const getCategoryCount = (cat) => {
@@ -66,14 +47,12 @@ function Products() {
     return products.filter(p => p.category === cat).length;
   };
 
-  // Filter live using searchQuery (updates on every keystroke)
+  // Filter only by the selected category button (client-side).
+  // The text search is handled by the backend, so we don't filter by
+  // searchQuery here.
   const filteredProducts = products.filter(product => {
-    const query = searchQuery.trim();
-    const matchesSearch =
-      fuzzyMatch(product.name, query) ||
-      fuzzyMatch(product.category, query);
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    return matchesCategory;
   });
 
   if (isLoading) {
@@ -85,27 +64,13 @@ function Products() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="products-page-container">
-        <div className="products-header">
-          <h1 className="products-title" style={{ color: 'black' }}>All Products</h1>
-        </div>
-        <div className="error-banner" style={{ padding: '15px', backgroundColor: '#ffebee', color: '#c62828', borderRadius: '5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
-          <p style={{ margin: 0, fontWeight: 'bold' }}>⚠️ Failed to load products: {error}</p>
-          <button onClick={refresh} style={{ padding: '8px 16px', backgroundColor: '#c62828', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Try again</button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="products-page-container">
       <div className="products-header">
-        <h1 className="products-title" style={{ color: 'black' }}>All Products</h1>
+        <h1 className="products-title">All Products</h1>
 
         <div className="products-meta-row">
-          <button className="refresh-btn" onClick={refresh}>
+          <button className="refresh-btn" onClick={() => { setSearchQuery(''); setSearchParams({}); refresh(); }}>
             ↻ Refresh products
           </button>
           {lastUpdated && (
@@ -119,33 +84,39 @@ function Products() {
           <input
             type="text"
             className="products-search-input"
-            placeholder="Search by name or category..."
+            placeholder="Search by name, category, or description..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <button type="submit" className="products-search-button">Search</button>
         </form>
 
-        <div className="category-filters">
-          {categories.map(cat => (
-            <button
-              key={cat}
-              className={`category-btn ${cat === selectedCategory ? 'active' : ''}`}
-              onClick={() => setSelectedCategory(cat)}
-            >
-              {cat} ({getCategoryCount(cat)})
-            </button>
-          ))}
-        </div>
-        
-        <p className="products-count-msg">
-          Showing {filteredProducts.length} of {products.length} products
-        </p>
+        {!error && (
+          <>
+            <div className="category-filters">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  className={`category-btn ${cat === selectedCategory ? 'active' : ''}`}
+                  onClick={() => setSelectedCategory(cat)}
+                >
+                  {cat} ({getCategoryCount(cat)})
+                </button>
+              ))}
+            </div>
+            
+            <p className="products-count-msg">
+              Showing {filteredProducts.length} of {products.length} products
+            </p>
+          </>
+        )}
       </div>
 
-      {filteredProducts.length === 0 ? (
+      {error ? (
+        <ErrorCard message={error} onRetry={refresh} />
+      ) : filteredProducts.length === 0 ? (
         <div className="no-products-found">
-          <p>No products found matching "{searchQuery}"</p>
+          <p>No products found{searchQuery ? ` matching "${searchQuery}"` : ''}</p>
         </div>
       ) : (
         <div className="products-grid">

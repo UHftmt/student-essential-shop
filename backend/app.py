@@ -70,20 +70,40 @@ def health_check():
 
 @app.route('/api/products', methods=['GET'])
 def get_products():
-    """Returns a list of products, optionally filtered by category."""
+    """Returns a list of products, optionally filtered by category and/or search query.
+    
+    Query parameters:
+      - category: filter by exact category name
+      - search: search against product name, category, and description (SQL LIKE)
+    """
     # 1. Open a connection to the database
     conn = get_db_connection()
     
-    # Check if a 'category' parameter was passed in the URL (e.g., ?category=Electronics)
+    # Check for query parameters
     category = request.args.get('category')
+    search = request.args.get('search', '').strip()
     
-    # 2. Execute a query based on whether a category was provided
+    # 2. Build the query dynamically based on provided filters
+    query = 'SELECT * FROM products'
+    conditions = []
+    params = []
+    
     if category:
-        # Use '?' parameterization to safely filter by category
-        products = conn.execute('SELECT * FROM products WHERE category = ?', (category,)).fetchall()
-    else:
-        # No category provided, fetch all products
-        products = conn.execute('SELECT * FROM products').fetchall()
+        conditions.append('category = ?')
+        params.append(category)
+    
+    if search:
+        # Search against name, category, and description using LIKE
+        conditions.append(
+            '(name LIKE ? OR category LIKE ? OR description LIKE ?)'
+        )
+        like_pattern = f'%{search}%'
+        params.extend([like_pattern, like_pattern, like_pattern])
+    
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
+    
+    products = conn.execute(query, tuple(params)).fetchall()
     
     # 3. Close the connection
     conn.close()
