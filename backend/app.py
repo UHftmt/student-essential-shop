@@ -63,6 +63,15 @@ def require_role(*allowed_roles):
         return decorated_function
     return decorator
 
+def get_current_user_id():
+    """Extract user_id from the JWT in the Authorization header.
+    Safe to call inside any @require_role-decorated endpoint,
+    since the decorator already validated the token."""
+    auth_header = request.headers.get('Authorization')
+    token = auth_header.split(' ')[1]
+    payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    return payload.get('user_id')
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint to verify the API is running."""
@@ -228,6 +237,59 @@ def delete_product(product_id):
     conn.close()
     return jsonify({"success": True, "message": "Product deleted"})
 
+@app.route('/api/cart', methods=['GET'])
+@require_role('customer', 'admin')
+def get_cart():
+    """Returns the authenticated user's saved cart items, joined with product info."""
+    user_id = get_current_user_id()
+
+    conn = get_db_connection()
+    rows = conn.execute('''
+        SELECT ci.product_id AS productId,
+               ci.quantity,
+               p.name,
+               p.price,
+               p.image,
+               p.stock
+        FROM cart_items ci
+        JOIN products p ON ci.product_id = p.id
+        WHERE ci.user_id = ?
+    ''', (user_id,)).fetchall()
+    conn.close()
+
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/cart', methods=['PUT'])
+@require_role('customer', 'admin')
+def update_cart():
+    """Replaces the user's entire cart with the provided items list."""
+    user_id = get_current_user_id()
+
+    items = request.json.get('items', [])
+
+    conn = get_db_connection()
+    try:
+        conn.execute('BEGIN TRANSACTION')
+        # Clear existing cart
+        conn.execute('DELETE FROM cart_items WHERE user_id = ?', (user_id,))
+
+        # Insert new items
+        for item in items:
+            product_id = item.get('productId')
+            quantity = item.get('quantity', 1)
+            if product_id and quantity > 0:
+                conn.execute(
+                    'INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, ?)',
+                    (user_id, product_id, quantity)
+                )
+        conn.commit()
+        return jsonify({"success": True, "message": "Cart updated"})
+    except Exception:
+        conn.rollback()
+        return jsonify({"error": "Failed to update cart"}), 500
+    finally:
+        conn.close()
+
 @app.route('/api/pos/sale', methods=['POST'])
 @require_role('admin', 'cashier')
 def pos_sale():
@@ -272,10 +334,7 @@ def pos_sale():
 @app.route('/api/orders', methods=['POST'])
 @require_role('customer', 'admin')
 def create_order():
-    auth_header = request.headers.get('Authorization')
-    token = auth_header.split(' ')[1]
-    payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-    user_id = payload.get('user_id')
+    user_id = get_current_user_id()
     
     data = request.json
     items = data.get('items', [])
@@ -315,7 +374,10 @@ def create_order():
             price = conn.execute('SELECT price FROM products WHERE id = ?', (product_id,)).fetchone()['price']
             conn.execute('INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)', 
                          (order_id, product_id, quantity, price))
-                         
+
+        # Clear the user's saved cart after successful order
+        conn.execute('DELETE FROM cart_items WHERE user_id = ?', (user_id,))
+
         conn.commit()
         return jsonify({"success": True, "order_id": order_id, "message": "Order completed successfully"})
     except ValueError as e:
@@ -330,10 +392,7 @@ def create_order():
 @app.route('/api/orders', methods=['GET'])
 @require_role('customer', 'admin')
 def get_orders():
-    auth_header = request.headers.get('Authorization')
-    token = auth_header.split(' ')[1]
-    payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-    user_id = payload.get('user_id')
+    user_id = get_current_user_id()
     
     conn = get_db_connection()
     orders = conn.execute('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC', (user_id,)).fetchall()

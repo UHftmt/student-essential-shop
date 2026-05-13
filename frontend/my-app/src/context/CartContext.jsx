@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useAuth } from './AuthContext';
+import { getApiUrl } from '../utils/api';
 
 // ── Create the context ──────────────────────────────────
 const CartContext = createContext();
@@ -14,6 +16,68 @@ export function useCart() {
 // ── Provider component ──────────────────────────────────
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([]);
+  const { token } = useAuth();
+  const syncTimeoutRef = useRef(null);
+  // Ref to skip the initial sync triggered by loading cart from backend
+  const skipNextSyncRef = useRef(false);
+
+  // ── Load saved cart from backend when user logs in ────
+  useEffect(() => {
+    if (!token) {
+      // User logged out → clear local cart
+      setCartItems([]);
+      return;
+    }
+
+    const loadCart = async () => {
+      try {
+        const res = await fetch(getApiUrl('/cart'), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const savedItems = await res.json();
+          // Skip the sync that would be triggered by setCartItems
+          skipNextSyncRef.current = true;
+          setCartItems(savedItems);
+        }
+      } catch (err) {
+        console.error('Failed to load cart:', err);
+      }
+    };
+
+    loadCart();
+  }, [token]);
+
+  // ── Auto-sync cart to backend on every change (debounced) ──
+  useEffect(() => {
+    if (!token) return;
+
+    // Skip the sync triggered by loading cart from backend
+    if (skipNextSyncRef.current) {
+      skipNextSyncRef.current = false;
+      return;
+    }
+
+    // Debounce: wait 500ms after last change before syncing
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+
+    syncTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fetch(getApiUrl('/cart'), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ items: cartItems })
+        });
+      } catch (err) {
+        console.error('Failed to sync cart:', err);
+      }
+    }, 500);
+
+    return () => clearTimeout(syncTimeoutRef.current);
+  }, [cartItems, token]);
 
   /**
    * addToCart(product)

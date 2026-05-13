@@ -61,6 +61,19 @@ def init_db():
         )
     ''')
 
+    # Create the cart_items table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cart_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            UNIQUE(user_id, product_id),
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (product_id) REFERENCES products (id)
+        )
+    ''')
+
     # Commit the changes and close the connection
     conn.commit()
     conn.close()
