@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl } from '../utils/api';
 import { GoogleLogin } from '@react-oauth/google';
+import DemoLoginModal from './DemoLoginModal';
 import './Navbar.css';
 
 function Navbar() {
   const { itemCount, clearCart } = useCart();
   const { user, login, logout } = useAuth();
+  const [showDemoModal, setShowDemoModal] = useState(false);
 
   const handleLoginSuccess = async (credentialResponse) => {
     const token = credentialResponse.credential;
@@ -70,14 +72,29 @@ function Navbar() {
             <button className="btn-signout" onClick={handleSignOut}>Sign out</button>
           </div>
         ) : (
-          <GoogleLogin
-            onSuccess={handleLoginSuccess}
-            onError={() => {
-              console.error('Login Failed');
-            }}
-          />
+          <div className="auth-buttons">
+            <GoogleLogin
+              onSuccess={handleLoginSuccess}
+              onError={() => {
+                console.error('Login Failed');
+              }}
+            />
+            <button
+              className="btn-demo-login"
+              onClick={() => setShowDemoModal(true)}
+            >
+              🔑 Demo Login
+            </button>
+          </div>
         )}
       </div>
+
+      {showDemoModal && (
+        <DemoLoginModal
+          onClose={() => setShowDemoModal(false)}
+          onLoginSuccess={login}
+        />
+      )}
     </nav>
   );
 }

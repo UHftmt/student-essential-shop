@@ -26,6 +26,8 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 JWT_SECRET = os.environ.get("JWT_SECRET", "super-secret-key")
 ADMIN_EMAIL_LIST = [e.strip() for e in os.environ.get("ADMIN_EMAIL", "").split(",") if e.strip()]
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
+DEMO_MODE_ENABLED = os.environ.get("DEMO_MODE_ENABLED", "true").lower() == "true"
+DEMO_ADMIN_CODE = os.environ.get("DEMO_ADMIN_CODE", "ADMIN_DEMO_2026")
 
 app = Flask(__name__)
 # Enable CORS so the React frontend can access this API
@@ -595,6 +597,62 @@ def google_login():
     except Exception as e:
         print(f"Login error: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/api/auth/demo_login', methods=['POST'])
+def demo_login():
+    """Demo login endpoint that bypasses Google OAuth for testing.
+    Accepts a demo_code and a role, and returns a JWT for a demo user."""
+    if not DEMO_MODE_ENABLED:
+        return jsonify({"error": "Demo login is disabled"}), 403
+
+    data = request.json
+    code = data.get('demo_code', '')
+    requested_role = data.get('role', 'admin')
+
+    if code != DEMO_ADMIN_CODE:
+        return jsonify({"error": "Invalid demo code"}), 401
+
+    # Only allow specific demo roles
+    allowed_demo_roles = ['admin', 'cashier', 'customer']
+    if requested_role not in allowed_demo_roles:
+        return jsonify({"error": "Invalid role"}), 400
+
+    # Build demo user identity based on role
+    demo_sub = f'demo-{requested_role}'
+    demo_name = f'Demo {requested_role.capitalize()}'
+    demo_email = f'demo-{requested_role}@test.com'
+
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE google_sub = ?', (demo_sub,)).fetchone()
+
+    if user:
+        conn.execute('UPDATE users SET role = ?, name = ?, email = ? WHERE google_sub = ?',
+                     (requested_role, demo_name, demo_email, demo_sub))
+        user_id = user['id']
+    else:
+        cursor = conn.execute('INSERT INTO users (google_sub, name, email, role) VALUES (?, ?, ?, ?)',
+                              (demo_sub, demo_name, demo_email, requested_role))
+        user_id = cursor.lastrowid
+
+    conn.commit()
+    conn.close()
+
+    jwt_payload = {
+        'user_id': user_id,
+        'role': requested_role,
+        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+    }
+    encoded_jwt = jwt.encode(jwt_payload, JWT_SECRET, algorithm="HS256")
+
+    return jsonify({
+        "user": {
+            "id": user_id,
+            "name": demo_name,
+            "email": demo_email,
+            "role": requested_role
+        },
+        "token": encoded_jwt
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
