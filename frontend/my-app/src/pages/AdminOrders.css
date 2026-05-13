@@ -13,9 +13,9 @@
   gap: 1rem;
 }
 
-.admin-header h2 {
+.admin-orders-container .admin-header h2 {
   font-size: 2rem;
-  color: var(--text-h);
+  color: #94a3b8;
   margin: 0;
   font-weight: 700;
 }
