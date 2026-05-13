@@ -25,6 +25,10 @@
   flex: 2;
 }
 
+.pos-products h2, .pos-ticket h2 {
+  color: #1e293b;
+}
+
 .pos-product-list {
   display: flex;
   flex-direction: column;
@@ -49,11 +53,16 @@
 .pos-product-name {
   font-weight: 600;
   width: 200px;
+  color: #1e293b;
 }
 
 .pos-product-price {
-  color: #2e7d32;
+  color: #15803d;
   font-weight: 500;
+}
+
+.pos-product-stock {
+  color: #475569;
 }
 
 .pos-product-stock.out {
@@ -99,11 +108,12 @@
 
 .item-name {
   font-weight: 600;
+  color: #1e293b;
 }
 
 .item-calc {
   font-size: 0.9rem;
-  color: #555;
+  color: #475569;
 }
 
 .btn-remove {
@@ -117,8 +127,13 @@
 
 .ticket-summary {
   margin-top: auto;
-  border-top: 2px solid #eee;
+  border-top: 2px solid #94a3b8;
   padding-top: 20px;
+}
+
+.empty-ticket {
+  color: #475569;
+  font-weight: 500;
 }
 
 .grand-total {
@@ -126,6 +141,7 @@
   font-weight: 700;
   margin-bottom: 20px;
   text-align: right;
+  color: #1e293b;
 }
 
 .ticket-actions {
@@ -171,4 +187,147 @@
   padding: 10px;
   border-radius: 6px;
   margin-bottom: 20px;
+}
+
+.summary-totals {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+
+.subtotal-small {
+  font-size: 1rem;
+  color: #64748b;
+}
+
+.discount-small {
+  font-size: 1rem;
+  color: #16a34a;
+  margin-bottom: 5px;
+}
+
+.btn-discount {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #3b82f6;
+  color: white;
+}
+
+.btn-discount:hover {
+  background-color: #2563eb;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content.discount-modal {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90%;
+}
+
+.discount-modal h2 {
+  color: #1e293b;
+  margin-top: 0;
+}
+
+.discount-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin: 20px 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.discount-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.discount-option:hover {
+  background-color: #f8fafc;
+}
+
+.discount-info, .discount-modal p {
+  color: #1e293b;
+}
+
+.badge {
+  background-color: #ef4444;
+  color: white;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 12px;
+  margin-left: 10px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.modal-right-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-modify-discount {
+  background-color: transparent;
+  color: #000000;
+  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-modify-discount:hover {
+  background-color: #f1f5f9;
+}
+
+.btn-cancel {
+  background-color: #e2e8f0;
+  color: #334155;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-apply {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.receipt-discount {
+  color: #16a34a;
+  font-weight: bold;
+  margin: 10px 0;
 }

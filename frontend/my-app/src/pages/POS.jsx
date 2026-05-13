@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useProducts from '../hooks/useProducts';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl } from '../utils/api';
@@ -6,10 +7,34 @@ import './POS.css';
 
 function POS() {
   const { products, isLoading, error, refresh } = useProducts();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const navigate = useNavigate();
   
   const [ticket, setTicket] = useState([]); // [{ product, quantity }]
   const [saleStatus, setSaleStatus] = useState({ type: null, message: '', details: null });
+
+  // Discount states
+  const [availableDiscounts, setAvailableDiscounts] = useState([]);
+  const [selectedDiscounts, setSelectedDiscounts] = useState([]);
+  const [tempSelectedDiscounts, setTempSelectedDiscounts] = useState([]);
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchDiscounts = async () => {
+      try {
+        const res = await fetch(getApiUrl('/discounts?state=1'), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableDiscounts(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch discounts", err);
+      }
+    };
+    if (token) fetchDiscounts();
+  }, [token]);
 
   // Add to ticket
   const handleAdd = (product) => {
@@ -37,14 +62,24 @@ function POS() {
     setSaleStatus({ type: null, message: '', details: null });
   };
 
-  const grandTotal = useMemo(() => {
+  const subtotal = useMemo(() => {
     return ticket.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   }, [ticket]);
+
+  const discountSavings = useMemo(() => {
+    let savings = 0;
+    selectedDiscounts.forEach(d => {
+      savings += subtotal * (d.percentage / 100);
+    });
+    return Math.min(savings, subtotal);
+  }, [subtotal, selectedDiscounts]);
+
+  const finalTotal = subtotal - discountSavings;
 
   const handleCompleteSale = async () => {
     if (ticket.length === 0) return;
     
-    const confirmSale = window.confirm(`Complete sale for $${grandTotal.toFixed(2)}?`);
+    const confirmSale = window.confirm(`Complete sale for $${finalTotal.toFixed(2)}?`);
     if (!confirmSale) return;
 
     try {
@@ -76,11 +111,14 @@ function POS() {
         message: 'Sale completed successfully!',
         details: {
           items: [...ticket],
-          total: grandTotal,
+          subtotal: subtotal,
+          discount: discountSavings,
+          total: finalTotal,
           timestamp: new Date().toLocaleString()
         }
       });
       setTicket([]);
+      setSelectedDiscounts([]);
       refresh(); // Refresh inventory
     } catch (err) {
       setSaleStatus({
@@ -142,6 +180,9 @@ function POS() {
                 </li>
               ))}
             </ul>
+            {saleStatus.details.discount > 0 && (
+              <div className="receipt-discount">Discount: -${saleStatus.details.discount.toFixed(2)}</div>
+            )}
             <h4>Total: ${saleStatus.details.total.toFixed(2)}</h4>
             <button onClick={() => setSaleStatus({ type: null, message: '', details: null })}>New Sale</button>
           </div>
@@ -173,13 +214,80 @@ function POS() {
         )}
 
         <div className="ticket-summary">
-          <div className="grand-total">Total: ${grandTotal.toFixed(2)}</div>
+          <div className="summary-totals">
+            {discountSavings > 0 ? (
+              <>
+                <div className="subtotal-small">Subtotal: ${subtotal.toFixed(2)}</div>
+                <div className="discount-small">Savings: -${discountSavings.toFixed(2)}</div>
+                <div className="grand-total">Total: ${finalTotal.toFixed(2)}</div>
+              </>
+            ) : (
+              <div className="grand-total">Total: ${finalTotal.toFixed(2)}</div>
+            )}
+          </div>
           <div className="ticket-actions">
+            <button className="btn-discount" onClick={() => {
+              setTempSelectedDiscounts(selectedDiscounts);
+              setIsDiscountModalOpen(true);
+            }}>Discount</button>
             <button className="btn-clear" onClick={clearTicket} disabled={ticket.length === 0}>Clear Ticket</button>
             <button className="btn-complete" onClick={handleCompleteSale} disabled={ticket.length === 0}>Complete Sale</button>
           </div>
         </div>
       </div>
+
+      {/* Discount Modal */}
+      {isDiscountModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content discount-modal">
+            <h2>Select Discounts</h2>
+            
+            {availableDiscounts.length === 0 ? (
+              <p>No active discounts available.</p>
+            ) : (
+              <div className="discount-list">
+                {availableDiscounts.map(discount => {
+                  const isSelected = tempSelectedDiscounts.some(d => d.id === discount.id);
+                  return (
+                    <label key={discount.id} className="discount-option">
+                      <input 
+                        type="checkbox" 
+                        checked={isSelected}
+                        onChange={() => {
+                          setTempSelectedDiscounts(prev => {
+                            if (isSelected) return prev.filter(d => d.id !== discount.id);
+                            if (!discount.stackability) return [discount];
+                            return [...prev.filter(d => d.stackability), discount];
+                          });
+                        }}
+                      />
+                      <span className="discount-info">
+                        <strong>{discount.name}</strong> ({discount.percentage}%) 
+                        {!discount.stackability && <span className="badge">No Stack</span>}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="modal-actions">
+              {user?.role === 'admin' && (
+                <button className="btn-modify-discount" onClick={() => navigate('/admin/discount')}>
+                  Modify Discount
+                </button>
+              )}
+              <div className="modal-right-actions">
+                <button className="btn-cancel" onClick={() => setIsDiscountModalOpen(false)}>Cancel</button>
+                <button className="btn-apply" onClick={() => {
+                  setSelectedDiscounts(tempSelectedDiscounts);
+                  setIsDiscountModalOpen(false);
+                }}>Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

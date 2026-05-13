@@ -296,6 +296,93 @@ def update_cart():
     finally:
         conn.close()
 
+@app.route('/api/discounts', methods=['GET'])
+@require_role('admin', 'cashier')
+def get_discounts():
+    conn = get_db_connection()
+    state = request.args.get('state')
+    if state is not None:
+        discounts = conn.execute('SELECT * FROM discounts WHERE state = ?', (int(state),)).fetchall()
+    else:
+        discounts = conn.execute('SELECT * FROM discounts').fetchall()
+    conn.close()
+    return jsonify([dict(d) for d in discounts])
+
+@app.route('/api/discounts', methods=['POST'])
+@require_role('admin')
+def create_discount():
+    data = request.json
+    required_fields = ['name', 'percentage']
+    if not all(field in data for field in required_fields):
+        return jsonify({"error": "Missing required fields"}), 400
+        
+    conn = get_db_connection()
+    cursor = conn.execute('''
+        INSERT INTO discounts (name, percentage, stackability, state)
+        VALUES (?, ?, ?, ?)
+    ''', (
+        data.get('name'),
+        float(data.get('percentage')),
+        int(data.get('stackability', 0)),
+        int(data.get('state', 0))
+    ))
+    new_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"success": True, "id": new_id, "message": "Discount created"}), 201
+
+@app.route('/api/discounts/<int:discount_id>', methods=['PUT'])
+@require_role('admin')
+def update_discount(discount_id):
+    data = request.json
+    conn = get_db_connection()
+    
+    discount = conn.execute('SELECT * FROM discounts WHERE id = ?', (discount_id,)).fetchone()
+    if not discount:
+        conn.close()
+        return jsonify({"error": "Discount not found"}), 404
+
+    update_fields = []
+    params = []
+    
+    fields = ['name', 'percentage', 'stackability', 'state']
+    for field in fields:
+        if field in data:
+            update_fields.append(f"{field} = ?")
+            val = data[field]
+            if field in ['stackability', 'state']:
+                val = int(val)
+            elif field == 'percentage':
+                val = float(val)
+            params.append(val)
+            
+    if not update_fields:
+        conn.close()
+        return jsonify({"error": "No valid fields to update"}), 400
+        
+    params.append(discount_id)
+    query = f"UPDATE discounts SET {', '.join(update_fields)} WHERE id = ?"
+    
+    conn.execute(query, tuple(params))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"success": True, "message": "Discount updated"})
+
+@app.route('/api/discounts/<int:discount_id>', methods=['DELETE'])
+@require_role('admin')
+def delete_discount(discount_id):
+    conn = get_db_connection()
+    cursor = conn.execute('DELETE FROM discounts WHERE id = ?', (discount_id,))
+    if cursor.rowcount == 0:
+        conn.close()
+        return jsonify({"error": "Discount not found"}), 404
+        
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Discount deleted"})
+
 @app.route('/api/pos/sale', methods=['POST'])
 @require_role('admin', 'cashier')
 def pos_sale():

@@ -74,6 +74,17 @@ def init_db():
         )
     ''')
 
+    # Create the discounts table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS discounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            percentage REAL NOT NULL,
+            stackability INTEGER NOT NULL DEFAULT 0,
+            state INTEGER NOT NULL DEFAULT 0
+        )
+    ''')
+
     # Commit the changes and close the connection
     conn.commit()
     conn.close()

@@ -15,7 +15,7 @@
 
 .admin-header h2 {
   font-size: 2rem;
-  color: #1e293b;
+  color: var(--text-h);
   margin: 0;
   font-weight: 700;
 }

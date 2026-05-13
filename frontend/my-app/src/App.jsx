@@ -10,6 +10,7 @@ import Cart from './pages/Cart';
 import CheckoutPage from './pages/CheckoutPage';
 import AdminInventory from './pages/AdminInventory';
 import AdminOrders from './pages/AdminOrders';
+import AdminDiscount from './pages/AdminDiscount';
 import POS from './pages/POS';
 import Orders from './pages/Orders';
 import useProducts from './hooks/useProducts';
@@ -99,6 +100,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
                     <AdminOrders />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/discount" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminDiscount />
                   </ProtectedRoute>
                 } 
               />
