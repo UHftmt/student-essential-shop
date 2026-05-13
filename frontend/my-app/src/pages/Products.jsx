@@ -6,7 +6,7 @@ import useProducts from '../hooks/useProducts';
 import './Products.css';
 
 function Products() {
-  const { products, isLoading, error, lastUpdated, refresh, search } = useProducts();
+  const { products, isLoading, error, lastUpdated, refresh, search, loadMore, hasMore } = useProducts();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSearch = searchParams.get('search') || '';
@@ -55,7 +55,7 @@ function Products() {
     return matchesCategory;
   });
 
-  if (isLoading) {
+  if (isLoading && products.length === 0) {
     return (
       <div className="loading-message">
         <div className="spinner"></div>
@@ -106,7 +106,7 @@ function Products() {
             </div>
             
             <p className="products-count-msg">
-              Showing {filteredProducts.length} of {products.length} products
+              Showing {filteredProducts.length} products
             </p>
           </>
         )}
@@ -119,15 +119,36 @@ function Products() {
           <p>No products found{searchQuery ? ` matching "${searchQuery}"` : ''}</p>
         </div>
       ) : (
-        <div className="products-grid">
-          {filteredProducts.map(product => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onSale={product.onSale}
-            />
-          ))}
-        </div>
+        <>
+          <div className="products-grid">
+            {filteredProducts.map(product => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onSale={product.onSale}
+              />
+            ))}
+          </div>
+          {hasMore && (
+            <div className="load-more-container" style={{ textAlign: 'center', marginTop: '2rem', marginBottom: '2rem' }}>
+              <button 
+                className="load-more-btn" 
+                onClick={loadMore}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '16px',
+                  backgroundColor: '#007BFF',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Load more
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

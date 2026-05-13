@@ -50,21 +50,22 @@
   overflow: hidden;
 }
 
-.inventory-table th,
 .inventory-table td {
   padding: 12px 15px;
   text-align: left;
   border-bottom: 1px solid #ddd;
+  color: #1a1a1a;
+  font-weight: 500;
 }
 
 .inventory-table th {
   background-color: #f8f9fa;
-  font-weight: 600;
-  color: #333;
+  font-weight: 700;
+  color: #2c3e50;
 }
 
 .inventory-table tr:hover {
-  background-color: #fafafa;
+  background-color: #f1f3f5;
 }
 
 /* Low Stock Row Highlight */
@@ -85,7 +86,8 @@
 .stock-number {
   display: inline-block;
   min-width: 30px;
-  font-weight: 500;
+  font-weight: 600;
+  color: #000;
 }
 
 /* Base Badge style */
@@ -160,7 +162,7 @@
 .edit-stock-error {
   color: #d32f2f;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* Action Buttons */
@@ -174,17 +176,17 @@
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.85rem;
   transition: background-color 0.2s;
 }
 
 .btn-restock {
-  background-color: #f0f0f0;
-  color: #333;
+  background-color: #0288d1;
+  color: white;
 }
 .btn-restock:hover {
-  background-color: #e0e0e0;
+  background-color: #01579b;
 }
 
 .btn-save {

@@ -91,6 +91,9 @@ def get_products():
     # Check for query parameters
     category = request.args.get('category')
     search = request.args.get('search', '').strip()
+    page = request.args.get('page', 1, type=int)
+    limit = request.args.get('limit', 15, type=int)
+    offset = (page - 1) * limit
     
     # 2. Build the query dynamically based on provided filters
     query = 'SELECT * FROM products'
@@ -111,6 +114,9 @@ def get_products():
     
     if conditions:
         query += ' WHERE ' + ' AND '.join(conditions)
+        
+    query += ' LIMIT ? OFFSET ?'
+    params.extend([limit, offset])
     
     products = conn.execute(query, tuple(params)).fetchall()
     

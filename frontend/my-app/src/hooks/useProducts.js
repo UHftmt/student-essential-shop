@@ -27,43 +27,32 @@ import { getApiUrl } from '../utils/api';
 // ─────────────────────────────────────────────────────────────────────
 let cachedProducts = null;   // holds the last-fetched product array
 let cachedLastUpdated = null; // Date when the cache was last populated
+let cachedPage = 1;
+let cachedHasMore = true;
+let cachedSearchQuery = '';
 
 const API_URL = getApiUrl('/products');
 
 /**
  * useProducts – custom hook for fetching & caching the product list.
  *
- * Returns { products, isLoading, error, lastUpdated, refresh, search }.
- *
- *  products    – Array of product objects ([] while loading).
- *  isLoading   – true during the network request.
- *  error       – Error message string, or null.
- *  lastUpdated – Date object of the most recent successful fetch.
- *  refresh()   – Clears the cache and re-fetches from the network.
- *  search(q)   – Fetches products matching query `q` from the backend
- *                and updates the cache with the results.
+ * Returns { products, isLoading, error, lastUpdated, refresh, search, loadMore, hasMore }.
  */
 export default function useProducts() {
-  // Initialise state from the cache so returning to this page is
-  // instant: products are shown immediately, isLoading starts false.
   const [products, setProducts] = useState(cachedProducts ?? []);
   const [isLoading, setIsLoading] = useState(cachedProducts === null);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(cachedLastUpdated);
+  const [hasMore, setHasMore] = useState(cachedHasMore);
 
-  // fetchProducts hits the network and writes both the module-level
-  // cache AND the React state.  Because it updates the cache first,
-  // any *new* component that mounts mid-flight will still pick up
-  // the freshest data once the fetch resolves.
-  const fetchProducts = useCallback(async (searchQuery = '') => {
-    setIsLoading(true);
+  const fetchProducts = useCallback(async (searchQuery = '', page = 1, append = false) => {
+    setIsLoading(!append);
     setError(null);
 
     try {
-      // Build URL with optional search parameter
-      let url = API_URL;
+      let url = `${API_URL}?page=${page}&limit=15`;
       if (searchQuery.trim()) {
-        url += `?search=${encodeURIComponent(searchQuery.trim())}`;
+        url += `&search=${encodeURIComponent(searchQuery.trim())}`;
       }
 
       const response = await fetch(url);
@@ -73,13 +62,19 @@ export default function useProducts() {
       const data = await response.json();
       const now = new Date();
 
-      // Write to the module-level cache so future mounts skip the fetch.
-      cachedProducts = data;
+      setProducts(prev => {
+        const next = append ? [...prev, ...data] : data;
+        cachedProducts = next;
+        return next;
+      });
+      
       cachedLastUpdated = now;
+      cachedPage = page;
+      cachedHasMore = data.length === 15;
+      cachedSearchQuery = searchQuery;
 
-      // Sync React state so the current component re-renders.
-      setProducts(data);
       setLastUpdated(now);
+      setHasMore(data.length === 15);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -87,29 +82,30 @@ export default function useProducts() {
     }
   }, []);
 
-  // On mount: only fetch if the cache is empty (first load or after
-  // a refresh).  If cachedProducts already has data we skip the
-  // network call entirely — that's the whole point of the cache.
   useEffect(() => {
     if (cachedProducts === null) {
       fetchProducts();
     }
   }, [fetchProducts]);
 
-  // refresh – the user-facing "Refresh products" action.
-  // Nulls the cache so the next fetchProducts() call treats it as a
-  // cold start, then immediately fires the fetch.
   const refresh = useCallback(() => {
     cachedProducts = null;
     cachedLastUpdated = null;
+    cachedPage = 1;
+    cachedHasMore = true;
+    cachedSearchQuery = '';
     fetchProducts();
   }, [fetchProducts]);
 
-  // search – queries the backend with a search term and updates the
-  // product cache with the results.
   const search = useCallback((query) => {
-    return fetchProducts(query);
+    return fetchProducts(query, 1, false);
   }, [fetchProducts]);
 
-  return { products, isLoading, error, lastUpdated, refresh, search };
+  const loadMore = useCallback(() => {
+    if (cachedHasMore) {
+      fetchProducts(cachedSearchQuery, cachedPage + 1, true);
+    }
+  }, [fetchProducts]);
+
+  return { products, isLoading, error, lastUpdated, refresh, search, loadMore, hasMore };
 }
